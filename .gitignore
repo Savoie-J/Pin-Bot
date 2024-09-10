@@ -1,6 +1,6 @@
-
 #Ignore thumbnails created by Windows
 Thumbs.db
+
 #Ignore files built by Visual Studio
 *.obj
 *.exe
@@ -29,8 +29,11 @@ _ReSharper*/
 [Tt]est[Rr]esult*
 .vs/
 .idea/
+
 #Nuget packages folder
 packages/
 
+#Manual Ignores
+__pycache__/
 .env
 monitored_channels.json
