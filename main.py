@@ -111,55 +111,82 @@ class pinBot(discord.Client):
 
         guild_id = message.guild.id
         
-        # Check if the channel is in the monitored list for the specific guild
-        if guild_id in self.monitored_channels and message.channel.id in self.monitored_channels[guild_id] and message.author.id == 457573832350236672:
-            print(f"Message from monitored bot detected in channel {message.channel} - {message.channel.id}.")
+        # Check if the channel is in the monitored list for the specific guild and from either friendliness or elenora bot.
+        if guild_id in self.monitored_channels and message.channel.id in self.monitored_channels[guild_id] and message.author.id in [457573832350236672, 735842992002433084]:
+            print(f"Message from monitored bot detected in channel {message.channel} - {message.channel.id} by bot {message.author} - {message.author.id}.")
+            
             if message.components:
                 for component in message.components:
                     for button in component.children:
-                        if button.label == "Complete the group":
-                            print("Found 'Complete the group' button, managing pins...")
+                        if button.label in ["Complete the group", "Complete Team"]:
+                            print("Found instance sheet embed button, managing pins...")
+                            
+                            # Pin the message logic
                             pins = await message.channel.pins()
                             if len(pins) >= self.max_pins:
                                 await pins[-1].unpin()
                                 print("Unpinned the oldest message.")
                             try:
-                                # Log additional details about the message, channel, and bot
                                 print(f"Pinning message: {message.id} in channel: {message.channel} - {message.channel.id}")
-                                #print(f"Bot: {self.user.id}")
-
                                 await message.pin()
                                 print(f"Message pinned successfully: {message.id}")
                             except discord.DiscordException as e:
                                 print(f"An error occurred while pinning: {e}")
 
+                            # Delete the confirmation message after pinning
                             try:
                                 await message.channel.purge(limit=1, check=lambda m: m.author == self.user)
                                 print("Deleted bot's confirmation message.")
                             except Exception as e:
                                 print(f"Failed to delete bot's message: {e}")
 
-                            # Default unpin time to 1 hour from now
+                            # Default unpin time to 1 hour from now if no specific time is found
                             unpin_time = datetime.now(timezone.utc) + timedelta(hours=1)
-                            
+
+                            # Search for the datetime in the embed
                             for embed in message.embeds:
+                                #print("Embed content:", embed.to_dict())
+
                                 if embed.description:
-                                    start = embed.description.find("`") + 1
-                                    end = embed.description.find("`", start)
-                                    if start != -1 and end != -1:
-                                        date_str = embed.description[start:end]
-                                        print(f"Extracted date from embed: {date_str}")
-                                        try:
-                                            date_time = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
-                                            date_time = date_time.replace(tzinfo=timezone.utc)
-                                            print(f"Extracted datetime: {date_time}")
-                                            unpin_time = date_time + timedelta(minutes=60)
-                                        except ValueError:
-                                            print("Date format is incorrect, using default unpin time")
+                                    # Try finding the time and date before '(gametime)' if the bot ID is 735842992002433084
+                                    if message.author.id == 735842992002433084: #if elenora bot
+                                        gametime_index = embed.description.find("(gametime)") #date is not separated, but always has (gametime) after
+                                        if gametime_index != -1:
+                                            # Extract the time and date preceding (gametime)
+                                            datetime_str = embed.description[:gametime_index].strip().split("\n")[-1].strip()
+                                            print(f"Extracted datetime string: {datetime_str}")
+                                            
+                                            try:
+                                                # Parse the extracted time and date into a datetime object
+                                                date_time = datetime.strptime(datetime_str, "%H:%M %m/%d/%Y")
+                                                date_time = date_time.replace(tzinfo=timezone.utc)
+                                                print(f"Parsed datetime: {date_time}")
+                                                unpin_time = date_time + timedelta(minutes=1)
+                                            except ValueError as e:
+                                                print(f"Error parsing datetime: {e}. Using default unpin time.")
+                                        else:
+                                            print("No '(gametime)' found in embed description, using default unpin time")
+                                    
+                                    elif message.author.id == 457573832350236672: #if friendly bot
+                                        start = embed.description.find("`") + 1 #date is formatted in code block for this bot
+                                        end = embed.description.find("`", start)
+                                        if start != -1 and end != -1:
+                                            date_str = embed.description[start:end]
+                                            print(f"Extracted date from embed: {date_str}")
+                                            try:
+                                                date_time = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+                                                date_time = date_time.replace(tzinfo=timezone.utc)
+                                                print(f"Extracted datetime: {date_time}")
+                                                unpin_time = date_time + timedelta(minutes=1)
+                                            except ValueError:
+                                                print("Date format is incorrect, using default unpin time")
+                                        else:
+                                            print("Date not found in embed description, using default unpin time")
                                     else:
-                                        print("Date not found in embed description, using default unpin time")
-                            
-                            print(f"Unpin time calculated: {unpin_time}")
+                                        print("Unsupported bot detected. Using default unpin time.")
+
+                            # Schedule the unpin
+                            print(f"Message will be unpinned at: {unpin_time}")
                             await self.schedule_unpin(message, unpin_time)
 
     async def schedule_unpin(self, message, unpin_time):
