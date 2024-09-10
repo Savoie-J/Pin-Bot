@@ -33,3 +33,4 @@ _ReSharper*/
 packages/
 
 .env
+monitored_channels.json
