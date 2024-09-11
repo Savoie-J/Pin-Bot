@@ -2,6 +2,7 @@ import discord
 
 async def setup_commands(bot):
     @bot.tree.command(name="addchannel", description="Add a channel to the monitored list")
+    @discord.app_commands.default_permissions(administrator=True)
     @discord.app_commands.describe(channel="The channel to add")
     async def add_channel(interaction: discord.Interaction, channel: discord.TextChannel):
         guild_id = interaction.guild.id
@@ -17,6 +18,7 @@ async def setup_commands(bot):
             await interaction.response.send_message("Channel is already monitored.", ephemeral=True)
 
     @bot.tree.command(name="removechannel", description="Remove a channel from the monitored list")
+    @discord.app_commands.default_permissions(administrator=True)
     @discord.app_commands.describe(channel="The channel to remove")
     async def remove_channel(interaction: discord.Interaction, channel: discord.TextChannel):
         guild_id = interaction.guild.id
