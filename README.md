@@ -13,7 +13,7 @@
 
 ### if on Windows;
 
-`venv/scripts.activate`
+`.\venv\scripts\activate`
 
 ### if on macOS/Linux;
 

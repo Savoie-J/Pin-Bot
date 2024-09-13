@@ -40,3 +40,4 @@ monitored_channels.json
 /venv
 error.log
 output.log
+settings.json
