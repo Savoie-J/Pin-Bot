@@ -41,3 +41,4 @@ monitored_channels.json
 error.log
 output.log
 settings.json
+webhooks.json
