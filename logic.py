@@ -17,6 +17,11 @@ async def get_unique_role_mentions(message):
     
     return ordered_role_mentions
 
+
+#Make it publish the messages sent by the webhook lmao
+
+
+
 async def handle_message(bot, message):
     if message.guild is None:
         return
@@ -67,7 +72,36 @@ async def handle_message(bot, message):
                         response = requests.post(webhook_url_with_wait, json=payload)
                         response.raise_for_status()
                         webhook_message_id = response.json()['id']
+                        
+                        # Store the webhook message
                         bot.store_sent_webhook_message(message.id, webhook_message_id, webhook_url)
+                        
+                       # Extract the webhook ID from the URL
+                        webhook_url_pattern = r"https://discord.com/api/webhooks/(?P<id>\d+)/(?P<token>[\w-]+)"
+                        match = re.match(webhook_url_pattern, webhook_url)
+                        if match:
+                            webhook_id = match.group('id')
+                            # Fetch the webhook to get its channel ID
+                            webhook = await bot.fetch_webhook(webhook_id)
+                            webhook_channel_id = webhook.channel_id
+
+                            # Fetch the channel where the webhook was sent
+                            webhook_channel = bot.get_channel(webhook_channel_id)
+                            if webhook_channel and isinstance(webhook_channel, discord.TextChannel):
+                                try:
+                                    # Fetch the webhook message using its ID
+                                    webhook_message = await webhook_channel.fetch_message(webhook_message_id)
+
+                                    # Check if the channel is an announcement (news) channel and publish the message
+                                    if webhook_channel.is_news():
+                                        await webhook_message.publish()
+                                        print(f"Published message {webhook_message_id} in channel {webhook_channel.id}.")
+                                except discord.Forbidden:
+                                    print(f"Failed to publish the message in channel {webhook_channel.id}. The bot may lack the required permissions.")
+                                except discord.HTTPException as e:
+                                    print(f"An error occurred while attempting to publish the message: {e}")
+                                except discord.NotFound:
+                                    print(f"Webhook message {webhook_message_id} not found in channel {webhook_channel.id}.")
                     except requests.RequestException as e:
                         print(f"Error sending webhook for guild {guild_id} to {webhook_url}: {e}")
 
