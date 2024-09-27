@@ -42,3 +42,4 @@ error.log
 output.log
 settings.json
 webhooks.json
+tasks.json 

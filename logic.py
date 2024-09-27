@@ -5,23 +5,6 @@ import requests
 from discord.utils import escape_markdown
 from datetime import datetime, timedelta, timezone
 
-async def get_unique_role_mentions(message):
-    role_mention_ids = re.findall(r'<@&(\d+)>', message.content)
-
-    ordered_role_mentions = []
-    for role_id in role_mention_ids:
-        for role in message.role_mentions:
-            if str(role.id) == role_id:
-                ordered_role_mentions.append(role)
-                break
-    
-    return ordered_role_mentions
-
-
-#Make it publish the messages sent by the webhook lmao
-
-
-
 async def handle_message(bot, message):
     if message.guild is None:
         return
@@ -158,9 +141,9 @@ async def handle_message(bot, message):
                                         except ValueError:
                                             print("Date format is incorrect, using default unpin time")
 
-                        asyncio.create_task(schedule_unpin(message, unpin_time))
+                        await bot.schedule_unpin(message, unpin_time)
                         if thread_id:
-                            asyncio.create_task(schedule_thread_deletion(message, thread_id, thread_deletion_time))
+                            await bot.schedule_thread_deletion(message, thread_id, thread_deletion_time)
 
 async def handle_message_edit(bot, before, after):
     # Check if the message belongs to a guild and has embeds
@@ -221,52 +204,14 @@ async def handle_message_edit(bot, before, after):
                 except requests.RequestException as e:
                     print(f"Error updating webhook message for guild {guild_id} at {webhook_url}: {e}")
 
-async def schedule_unpin(message, unpin_time):
-    now = datetime.now(timezone.utc)
-    delay = (unpin_time - now).total_seconds()
-    
-    if delay <= 0:
-        print("Unpinning message immediately because the scheduled time is in the past.")
-        try:
-            await message.unpin()
-            #print(f"Message unpinned: {message.id}")
-        except Exception as e:
-            print(f"Failed to unpin message: {e}")
-    else:
-        print(f"Scheduling unpin in {delay} seconds.")
-        await asyncio.sleep(delay)
-        try:
-            await message.unpin()
-            print(f"Message unpinned: {message.id}")
-        except Exception as e:
-            print(f"Failed to unpin message: {e}")
+async def get_unique_role_mentions(message):
+    role_mention_ids = re.findall(r'<@&(\d+)>', message.content)
 
-async def schedule_thread_deletion(message, thread_id, thread_deletion_time):
-    now = datetime.now(timezone.utc)
-    thread_delay = (thread_deletion_time - now).total_seconds()
+    ordered_role_mentions = []
+    for role_id in role_mention_ids:
+        for role in message.role_mentions:
+            if str(role.id) == role_id:
+                ordered_role_mentions.append(role)
+                break
     
-    if thread_delay <= 0:
-        print("Deleting thread immediately because the scheduled time is in the past.")
-        try:
-            guild = message.guild
-            thread = discord.utils.get(guild.threads, id=thread_id)
-            if thread:
-                await thread.delete()
-                #print(f"Deleted thread: {thread_id}")
-            else:
-                print(f"Thread {thread_id} not found.")
-        except Exception as e:
-            print(f"Failed to delete thread: {e}")
-    else:
-        print(f"Scheduling thread deletion in {thread_delay} seconds.")
-        await asyncio.sleep(thread_delay)
-        try:
-            guild = message.guild
-            thread = discord.utils.get(guild.threads, id=thread_id)
-            if thread:
-                await thread.delete()
-                print(f"Deleted thread: {thread_id}")
-            else:
-                print(f"Thread {thread_id} not found.")
-        except Exception as e:
-            print(f"Failed to delete thread: {e}")
+    return ordered_role_mentions
