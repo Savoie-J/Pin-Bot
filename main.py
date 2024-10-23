@@ -80,6 +80,20 @@ class pinBot(commands.Bot):
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')
         activity = discord.Activity(type=discord.ActivityType.listening, name="to the voices ramble about pins.")
+
+        for guild in self.guilds:
+            print(f"Guild Name: {guild.name}, Guild ID: {guild.id}")
+
+# Optional: Leave a specific guild by hardcoding the guild ID
+#         
+#        guild_id_to_leave = None 
+#        guild = self.get_guild(guild_id_to_leave)
+#        if guild:
+#            await guild.leave()
+#            print(f"Left guild: {guild.name} (ID: {guild.id})")
+#        else:
+#            print(f"Guild with ID {guild_id_to_leave} not found.")
+
         await self.change_presence(activity=activity)
         await self.reschedule_tasks()  # Run task rescheduling after bot is ready
 
@@ -96,6 +110,9 @@ class pinBot(commands.Bot):
         while True:
             await asyncio.sleep(60)  # Check every minute
             await self.reschedule_tasks()
+            self.load_monitored_channels()
+            self.load_settings()
+            self.load_webhooks()
 
     async def on_message(self, message):
         await handle_message(self, message)

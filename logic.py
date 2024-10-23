@@ -125,6 +125,13 @@ async def handle_message(bot, message):
                                             date_time = date_time.replace(tzinfo=timezone.utc)
                                             unpin_time = date_time + timedelta(minutes=unpin_delay_minutes)
                                             thread_deletion_time = date_time + timedelta(minutes=thread_deletion_delay_minutes)
+
+                                            #Discord forbids the deletion of channel name change system messages, unlike pin messages :(   
+                                            if thread_id: 
+                                                thread = message.channel.get_thread(thread_id)
+                                                new_name = f"{date_time.strftime('%H:%M - ')} {thread.name}"
+                                                await thread.edit(name=new_name)
+
                                         except ValueError as e:
                                             print(f"Error parsing datetime: {e}. Using default unpin time.")
 
@@ -138,6 +145,12 @@ async def handle_message(bot, message):
                                             date_time = date_time.replace(tzinfo=timezone.utc)
                                             unpin_time = date_time + timedelta(minutes=unpin_delay_minutes)
                                             thread_deletion_time = date_time + timedelta(minutes=thread_deletion_delay_minutes)
+
+                                            if thread_id:
+                                                thread = message.channel.get_thread(thread_id)
+                                                new_name = f"{date_time.strftime('%H:%M - ')} {thread.name}"
+                                                await thread.edit(name=new_name)
+
                                         except ValueError:
                                             print("Date format is incorrect, using default unpin time")
 
