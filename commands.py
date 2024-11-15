@@ -1,5 +1,7 @@
 import discord
 import json
+import re
+from logic import handle_message, handle_message_edit, get_unique_role_mentions
 
 async def setup_commands(bot):
     @bot.tree.command(name="addchannel", description="Add a channel to the monitored list")
@@ -169,3 +171,51 @@ async def setup_commands(bot):
             json.dump(settings, f, indent=4)
         
         await interaction.response.send_message("Invite link removed for this server.", ephemeral=True)
+
+    @bot.tree.command(name="pin", description="Process a message link with pin functionality.")
+    @discord.app_commands.describe(link="The message link to process")
+    async def pin(interaction: discord.Interaction, link: str):
+        # Defer the interaction response to avoid timing out
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            # Extract guild ID, channel ID, and message ID from the link
+            pattern = r"https://discord.com/channels/(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)"
+            match = re.match(pattern, link)
+
+            if not match:
+                await interaction.followup.send("Invalid message link format.", ephemeral=True)
+                return
+
+            guild_id = int(match.group("guild_id"))
+            channel_id = int(match.group("channel_id"))
+            message_id = int(match.group("message_id"))
+
+            # Fetch the guild, channel, and message
+            guild = bot.get_guild(guild_id)
+            if not guild:
+                await interaction.followup.send("The guild was not found.", ephemeral=True)
+                return
+
+            channel = guild.get_channel(channel_id)
+            if not channel or not isinstance(channel, discord.TextChannel):
+                await interaction.followup.send("The channel was not found or is not a text channel.", ephemeral=True)
+                return
+
+            message = await channel.fetch_message(message_id)
+            if not message:
+                await interaction.followup.send("The message was not found.", ephemeral=True)
+                return
+
+            # Run the handle_message function
+            await handle_message(bot, message)
+
+            if (guild_id in bot.monitored_channels and message.channel.id in bot.monitored_channels[guild_id] and message.author.id in [457573832350236672, 735842992002433084, 1284787241943699486, 1286639371038232698]):
+                await interaction.followup.send("Success!", ephemeral=True)
+            else:
+                await interaction.followup.send("Please ensure the message link is in a monitored channel, by a valid author.", ephemeral=True)
+
+        except Exception as e:
+            # Log the error and send an error message to the user
+            print(f"Error in /pin command: {e}")
+            await interaction.followup.send("An error occurred while processing the message.", ephemeral=True)
