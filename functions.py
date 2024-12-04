@@ -103,7 +103,8 @@ async def add_unpin_task(tasks, guild_id, channel_id, message_id, unpin_time):
         'type': 'unpin',
         'channel_id': channel_id,
         'message_id': message_id,
-        'unpin_time': unpin_time
+        'unpin_time': unpin_time,
+        'retries': 0
     })
 
 async def add_thread_deletion_task(tasks, guild_id, channel_id, thread_id, thread_deletion_time):
@@ -114,7 +115,8 @@ async def add_thread_deletion_task(tasks, guild_id, channel_id, thread_id, threa
         'type': 'thread_deletion',
         'channel_id': channel_id,
         'thread_id': thread_id,
-        'thread_deletion_time': thread_deletion_time
+        'thread_deletion_time': thread_deletion_time,
+        'retries': 0
     })
 
 async def remove_completed_tasks(tasks, guild_id):

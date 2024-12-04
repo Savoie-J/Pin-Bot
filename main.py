@@ -126,19 +126,23 @@ class pinBot(commands.Bot):
             try:
                 message = await channel.fetch_message(task['message_id'])
                 await message.unpin()
-                #print(f"Successfully unpinned message {task['message_id']} in channel {task['channel_id']} for guild {guild_id}")
                 return True
             except discord.NotFound:
-                print(f"Message {task['message_id']} not found in channel {task['channel_id']} for guild {guild_id}, considering it as unpinned")
+                print(f"Message {task['message_id']} not found in guild {guild_id}, considering it as unpinned.")
                 return True
             except discord.Forbidden:
-                print(f"Bot doesn't have permission to unpin message {task['message_id']} in channel {task['channel_id']} for guild {guild_id}")
+                print(f"No permission to unpin message {task['message_id']} in guild {guild_id}.")
             except Exception as e:
-                print(f"Error unpinning message {task['message_id']} in channel {task['channel_id']} for guild {guild_id}: {e}")
+                print(f"Error unpinning message {task['message_id']} in guild {guild_id}: {e}")
         else:
-            print(f"Channel {task['channel_id']} not found for guild {guild_id}, skipping unpin task")
+            print(f"Channel {task['channel_id']} not found in guild {guild_id}.")
+        
+        task['retries'] += 1
+        if task['retries'] >= 3: 
+            print(f"Task {task} failed after several retries, removing it.")
+            return True  
         return False
-
+    
     async def execute_thread_deletion_task(self, guild_id, task):
         channel = self.get_channel(task['channel_id'])
         if channel:
@@ -146,21 +150,24 @@ class pinBot(commands.Bot):
                 thread = await self.fetch_channel(task['thread_id'])
                 if isinstance(thread, discord.Thread):
                     await thread.delete()
-                    #print(f"Successfully deleted thread {task['thread_id']} in channel {task['channel_id']} for guild {guild_id}")
-                    return True  # Indicate successful deletion
+                    return True
                 else:
-                    print(f"Channel {task['thread_id']} is not a thread in guild {guild_id}, skipping deletion")
+                    print(f"Channel {task['thread_id']} is not a thread in guild {guild_id}.")
             except discord.NotFound:
-                print(f"Thread {task['thread_id']} not found in channel {task['channel_id']} for guild {guild_id}, considering it as deleted")
-                return True  # Consider it deleted if not found
+                print(f"Thread {task['thread_id']} not found in guild {guild_id}, considering it as deleted.")
+                return True
             except discord.Forbidden:
-                print(f"Bot doesn't have permission to delete thread {task['thread_id']} in channel {task['channel_id']} for guild {guild_id}")
+                print(f"No permission to delete thread {task['thread_id']} in guild {guild_id}.")
             except Exception as e:
-                print(f"Error deleting thread {task['thread_id']} in channel {task['channel_id']} for guild {guild_id}: {e}")
+                print(f"Error deleting thread {task['thread_id']} in guild {guild_id}: {e}")
         else:
-            print(f"Channel {task['channel_id']} not found for guild {guild_id}, skipping thread deletion task")
+            print(f"Channel {task['channel_id']} not found in guild {guild_id}.")
         
-        return False  # Indicate unsuccessful deletion
+        task['retries'] += 1
+        if task['retries'] >= 3:
+            print(f"Task {task} failed after several retries, removing it.")
+            return True  
+        return False
 
     async def reschedule_tasks(self):
         if not self.is_ready():
@@ -184,7 +191,7 @@ class pinBot(commands.Bot):
                 self.tasks[guild_id] = [t for t in self.tasks[guild_id] if t != task]
                 #print(f"Removed completed task for guild {guild_id}")
             else:
-                print(f"Task execution failed, will retry later")
+                print(f"Task execution failed, will retry if under limit")
 
         self.save_tasks()
 
