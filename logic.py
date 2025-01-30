@@ -15,6 +15,7 @@ async def handle_message(bot, message):
     unpin_delay_minutes = settings.get('unpin_time', 60)
     thread_deletion_delay_minutes = settings.get('thread_deletion_time', 60)
     inviteLink = settings.get('invite_link', 'https://discord.com/')
+    force_thread_creation = settings.get('force_thread_creation', False)
 
     if (guild_id in bot.monitored_channels and 
     message.channel.id in bot.monitored_channels[guild_id] and 
@@ -126,16 +127,24 @@ async def handle_message(bot, message):
                                             unpin_time = date_time + timedelta(minutes=unpin_delay_minutes)
                                             thread_deletion_time = date_time + timedelta(minutes=thread_deletion_delay_minutes)
 
-                                            #Discord forbids the deletion of channel name change system messages, unlike pin messages :(   
-                                            if thread_id: 
+                                            if not thread_id and force_thread_creation:
+                                                thread_name = f"{date_time.strftime('%H:%M - %m/%d')}"
+                                                thread = await message.create_thread(name=thread_name)
+                                                thread_id = thread.id
+
+                                                if message.role_mentions:
+                                                    ping_message = await thread.send(message.role_mentions[0].mention)
+                                                    await ping_message.delete()
+                                            
+                                            elif thread_id:
                                                 thread = message.channel.get_thread(thread_id)
-                                                new_name = f"{date_time.strftime('%H:%M - ')} {thread.name}"
+                                                new_name = f"{date_time.strftime('%H:%M - %m/%d - ')} {thread.name}"
                                                 await thread.edit(name=new_name)
 
                                         except ValueError as e:
                                             print(f"Error parsing datetime: {e}. Using default unpin time.")
 
-                                elif message.author.id == 457573832350236672 or 1286639371038232698 or 1284787241943699486:  # Friendly bot or boss bot
+                                elif message.author.id in [457573832350236672, 1286639371038232698, 1284787241943699486]: # Friendly bot or boss bot
                                     start = embed.description.find("`") + 1
                                     end = embed.description.find("`", start)
                                     if start != -1 and end != -1:
@@ -146,9 +155,18 @@ async def handle_message(bot, message):
                                             unpin_time = date_time + timedelta(minutes=unpin_delay_minutes)
                                             thread_deletion_time = date_time + timedelta(minutes=thread_deletion_delay_minutes)
 
-                                            if thread_id:
+                                            if not thread_id and force_thread_creation:
+                                                thread_name = f"{date_time.strftime('%H:%M - %m/%d')}"
+                                                thread = await message.create_thread(name=thread_name)
+                                                thread_id = thread.id
+
+                                                if message.role_mentions:
+                                                    ping_message = await thread.send(message.role_mentions[0].mention)
+                                                    await ping_message.delete()
+                                            
+                                            elif thread_id:
                                                 thread = message.channel.get_thread(thread_id)
-                                                new_name = f"{date_time.strftime('%H:%M - ')} {thread.name}"
+                                                new_name = f"{date_time.strftime('%H:%M - %m/%d - ')} {thread.name}"
                                                 await thread.edit(name=new_name)
 
                                         except ValueError:

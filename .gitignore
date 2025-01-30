@@ -43,3 +43,4 @@ output.log
 settings.json
 webhooks.json
 tasks.json 
+.DS_Store

@@ -219,3 +219,52 @@ async def setup_commands(bot):
             # Log the error and send an error message to the user
             print(f"Error in /pin command: {e}")
             await interaction.followup.send("An error occurred while processing the message.", ephemeral=True)
+
+    @bot.tree.command(name="thread_mode", description="Set whether threads should be automatically created for embeds.")
+    @discord.app_commands.describe(enabled="Whether thread creation should be enabled (true/false)")
+    @discord.app_commands.default_permissions(administrator=True)
+    async def thread_mode(interaction: discord.Interaction, enabled: bool):
+        guild_id = str(interaction.guild.id)
+        
+        # Load current settings
+        with open('settings.json', 'r') as f:
+            settings = json.load(f)
+        
+        # Initialize guild settings if they don't exist
+        if guild_id not in settings:
+            settings[guild_id] = {}
+        
+        # Update thread mode setting
+        settings[guild_id]['force_thread_creation'] = enabled
+        
+        # Save updated settings
+        with open('settings.json', 'w') as f:
+            json.dump(settings, f, indent=4)
+        
+        await interaction.response.send_message(
+            f"Thread creation mode has been set to: `{enabled}`",
+            ephemeral=True
+        )
+
+    @bot.tree.command(name="thread_mode_status", description="Check the current thread creation mode setting.")
+    @discord.app_commands.default_permissions(administrator=True)
+    async def thread_mode_status(interaction: discord.Interaction):
+        guild_id = str(interaction.guild.id)
+        
+        # Load current settings
+        with open('settings.json', 'r') as f:
+            settings = json.load(f)
+        
+        # Check if setting exists
+        if guild_id not in settings or 'force_thread_creation' not in settings[guild_id]:
+            await interaction.response.send_message(
+                "Thread creation mode is not set for this server. Default: `disabled`",
+                ephemeral=True
+            )
+            return
+        
+        enabled = settings[guild_id]['force_thread_creation']
+        await interaction.response.send_message(
+            f"Thread creation mode is currently: `{enabled}`",
+            ephemeral=True
+        )
