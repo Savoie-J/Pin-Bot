@@ -38,6 +38,7 @@ __pycache__/
 .env
 monitored_channels.json
 /venv
+/.venv
 error.log
 output.log
 settings.json
