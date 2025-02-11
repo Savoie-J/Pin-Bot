@@ -79,7 +79,7 @@ async def handle_message(bot, message):
                                     # Check if the channel is an announcement (news) channel and publish the message
                                     if webhook_channel.is_news():
                                         await webhook_message.publish()
-                                        print(f"Published message {webhook_message_id} in channel {webhook_channel.id}.")
+                                        #print(f"Published message {webhook_message_id} in channel {webhook_channel.id}.")
                                 except discord.Forbidden:
                                     print(f"Failed to publish the message in channel {webhook_channel.id}. The bot may lack the required permissions.")
                                 except discord.HTTPException as e:

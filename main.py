@@ -72,7 +72,7 @@ class pinBot(commands.Bot):
 
     def load_tasks(self):
         self.tasks = load_tasks(self.tasks_file)
-        print(f'Loaded Tasks: {self.tasks}')
+        #print(f'Loaded Tasks: {self.tasks}')
 
     def save_tasks(self):
         save_tasks(self.tasks, self.tasks_file)
@@ -109,6 +109,7 @@ class pinBot(commands.Bot):
     async def periodic_task_check(self):
         while True:
             await asyncio.sleep(60)  # Check every minute
+            self.load_tasks()
             await self.reschedule_tasks()
             self.load_monitored_channels()
             self.load_settings()
