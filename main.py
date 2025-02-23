@@ -60,11 +60,9 @@ class pinBot(commands.Bot):
         save_settings(self.settings, self.settings_file)
 
     def load_webhooks(self):
-        webhooks = load_webhooks(self.webhooks_file)
-        if not isinstance(webhooks, dict):
-            webhooks = {}
-        self.webhooks = webhooks
-        return self.webhooks
+        loaded_webhooks = load_webhooks(self.webhooks_file)
+        if isinstance(loaded_webhooks, dict):
+            self.webhooks.update(loaded_webhooks)
 
     def save_webhooks(self, webhooks):
         save_webhooks(webhooks, self.webhooks_file)
@@ -78,11 +76,11 @@ class pinBot(commands.Bot):
         save_tasks(self.tasks, self.tasks_file)
 
     async def on_ready(self):
-        print(f'Logged in as {self.user} (ID: {self.user.id})')
+        #print(f'Logged in as {self.user} (ID: {self.user.id})')
         activity = discord.Activity(type=discord.ActivityType.listening, name="to the voices ramble about pins.")
 
-        for guild in self.guilds:
-            print(f"Guild Name: {guild.name}, Guild ID: {guild.id}")
+        #for guild in self.guilds:
+            #print(f"Guild Name: {guild.name}, Guild ID: {guild.id}")
 
 # Optional: Leave a specific guild by hardcoding the guild ID
 #         
@@ -108,12 +106,23 @@ class pinBot(commands.Bot):
 
     async def periodic_task_check(self):
         while True:
-            await asyncio.sleep(60)  # Check every minute
-            self.load_tasks()
-            await self.reschedule_tasks()
-            self.load_monitored_channels()
-            self.load_settings()
-            self.load_webhooks()
+            await asyncio.sleep(60)
+            updated_tasks = load_tasks(self.tasks_file)
+            if updated_tasks != self.tasks:  # Only reload if something changed
+                self.tasks = updated_tasks
+                await self.reschedule_tasks()
+            
+            updated_channels = load_monitored_channels(self.data_file)
+            if updated_channels != self.monitored_channels:
+                self.monitored_channels = updated_channels
+            
+            updated_settings = load_settings(self.settings_file)
+            if updated_settings != self.settings:
+                self.settings = updated_settings
+            
+            updated_webhooks = load_webhooks(self.webhooks_file)
+            if updated_webhooks != self.webhooks:
+                self.webhooks = updated_webhooks
 
     async def on_message(self, message):
         await handle_message(self, message)
@@ -176,23 +185,21 @@ class pinBot(commands.Bot):
             return
         
         due_tasks = await get_due_tasks(self.tasks)
+        tasks_to_remove = []
 
         for guild_id, task in due_tasks:
+            success = False
             if task['type'] == 'unpin':
-                #print(f"Executing unpin task for guild {guild_id}, message {task['message_id']}")
                 success = await self.execute_unpin_task(guild_id, task)
             elif task['type'] == 'thread_deletion':
-                #print(f"Executing thread deletion task for guild {guild_id}, thread {task['thread_id']}")
                 success = await self.execute_thread_deletion_task(guild_id, task)
-            else:
-                print(f"Unknown task type: {task['type']}")
-                success = False
 
             if success:
-                self.tasks[guild_id] = [t for t in self.tasks[guild_id] if t != task]
-                #print(f"Removed completed task for guild {guild_id}")
-            else:
-                print(f"Task execution failed, will retry if under limit")
+                tasks_to_remove.append((guild_id, task))
+
+        for guild_id, task in tasks_to_remove:
+            self.tasks[guild_id].remove(task)
+            print(f"Task removed: {task}")
 
         self.save_tasks()
 
@@ -206,8 +213,12 @@ class pinBot(commands.Bot):
 
     def store_sent_webhook_message(self, original_message_id, webhook_message_id, webhook_url):
         if original_message_id not in self.sent_webhook_messages:
-            self.sent_webhook_messages[original_message_id] = []
-        self.sent_webhook_messages[original_message_id].append((webhook_message_id, webhook_url))
+            self.sent_webhook_messages[original_message_id] = set()
+        
+        message_tuple = (webhook_message_id, webhook_url)
+        if message_tuple not in self.sent_webhook_messages[original_message_id]:
+            self.sent_webhook_messages[original_message_id].add(message_tuple)
+
 
 client = pinBot(command_prefix=None, intents=intents)
 client.run(token)

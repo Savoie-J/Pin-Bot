@@ -96,10 +96,11 @@ def save_tasks(tasks, tasks_file):
         print(f"Failed to save tasks: {e}")
 
 async def add_unpin_task(tasks, guild_id, channel_id, message_id, unpin_time):
-    if guild_id not in tasks:
-        tasks[guild_id] = []
+    guild_id_str = str(guild_id)
+    if guild_id_str not in tasks:
+        tasks[guild_id_str] = []
     
-    tasks[guild_id].append({
+    tasks[guild_id_str].append({
         'type': 'unpin',
         'channel_id': channel_id,
         'message_id': message_id,
@@ -108,10 +109,11 @@ async def add_unpin_task(tasks, guild_id, channel_id, message_id, unpin_time):
     })
 
 async def add_thread_deletion_task(tasks, guild_id, channel_id, thread_id, thread_deletion_time):
-    if guild_id not in tasks:
-        tasks[guild_id] = []
+    guild_id_str = str(guild_id)
+    if guild_id_str not in tasks:
+        tasks[guild_id_str] = []
     
-    tasks[guild_id].append({
+    tasks[guild_id_str].append({
         'type': 'thread_deletion',
         'channel_id': channel_id,
         'thread_id': thread_id,
@@ -122,16 +124,14 @@ async def add_thread_deletion_task(tasks, guild_id, channel_id, thread_id, threa
 async def remove_completed_tasks(tasks, guild_id):
     now = datetime.now(timezone.utc)
     tasks[guild_id] = [task for task in tasks[guild_id] 
-                       if ('unpin_time' in task and task['unpin_time'] > now) or 
+                      if ('unpin_time' in task and task['unpin_time'] > now) or 
                           ('thread_deletion_time' in task and task['thread_deletion_time'] > now)]
+    if not tasks[guild_id]:
+        del tasks[guild_id]
+
 
 async def get_due_tasks(tasks):
     now = datetime.now(timezone.utc)
-    due_tasks = []
-    for guild_id, guild_tasks in tasks.items():
-        for task in guild_tasks:
-            if 'unpin_time' in task and task['unpin_time'] <= now:
-                due_tasks.append((guild_id, task))
-            elif 'thread_deletion_time' in task and task['thread_deletion_time'] <= now:
-                due_tasks.append((guild_id, task))
-    return due_tasks
+    return [(guild_id, task) for guild_id, guild_tasks in tasks.items() for task in guild_tasks 
+            if ('unpin_time' in task and task['unpin_time'] <= now) or 
+               ('thread_deletion_time' in task and task['thread_deletion_time'] <= now)]

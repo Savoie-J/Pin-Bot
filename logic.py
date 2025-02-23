@@ -25,8 +25,15 @@ async def handle_message(bot, message):
             # Capture role mentions from the message and history
             role_mentions = await get_unique_role_mentions(message)
 
-            for webhook_url in webhooks[guild_id]:
-                for embed in message.embeds:
+            if guild_id in bot.sent_webhook_messages and message.id in bot.sent_webhook_messages[guild_id]:
+                print(f"Skipping duplicate webhook for message {message.id}")
+            else:
+                bot.sent_webhook_messages.setdefault(guild_id, set()).add(message.id)  # Mark message as sent
+                for webhook_url in webhooks[guild_id]:
+                    if not message.embeds:
+                        continue  # Skip if no embeds are found
+
+                    embed = message.embeds[0]  # Send only the first embed to avoid duplicates
                     embed_dict = embed.to_dict()
 
                     # Construct the message URL and default invite link
