@@ -10,7 +10,6 @@
 
 >Enables the virtual environment. 
 
-
 ### if on Windows;
 
 `.\venv\scripts\activate`
