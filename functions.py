@@ -123,15 +123,21 @@ async def add_thread_deletion_task(tasks, guild_id, channel_id, thread_id, threa
 
 async def remove_completed_tasks(tasks, guild_id):
     now = datetime.now(timezone.utc)
+    
+    if guild_id not in tasks:
+        return
+
     tasks[guild_id] = [task for task in tasks[guild_id] 
                       if ('unpin_time' in task and task['unpin_time'] > now) or 
-                          ('thread_deletion_time' in task and task['thread_deletion_time'] > now)]
-    if not tasks[guild_id]:
+                         ('thread_deletion_time' in task and task['thread_deletion_time'] > now)]
+    
+    if guild_id in tasks and not tasks[guild_id]:
+        print(f"All tasks completed for guild {guild_id}, removing from tasks.")
         del tasks[guild_id]
-
 
 async def get_due_tasks(tasks):
     now = datetime.now(timezone.utc)
-    return [(guild_id, task) for guild_id, guild_tasks in tasks.items() for task in guild_tasks 
-            if ('unpin_time' in task and task['unpin_time'] <= now) or 
-               ('thread_deletion_time' in task and task['thread_deletion_time'] <= now)]
+    due_tasks = [(guild_id, task) for guild_id, guild_tasks in tasks.items() for task in guild_tasks 
+                 if ('unpin_time' in task and task['unpin_time'] <= now) or 
+                    ('thread_deletion_time' in task and task['thread_deletion_time'] <= now)]
+    return due_tasks

@@ -107,22 +107,14 @@ class pinBot(commands.Bot):
     async def periodic_task_check(self):
         while True:
             await asyncio.sleep(60)
-            updated_tasks = load_tasks(self.tasks_file)
-            if updated_tasks != self.tasks:  # Only reload if something changed
-                self.tasks = updated_tasks
+
+            due_tasks = await get_due_tasks(self.tasks)
+            if due_tasks:
                 await self.reschedule_tasks()
-            
-            updated_channels = load_monitored_channels(self.data_file)
-            if updated_channels != self.monitored_channels:
-                self.monitored_channels = updated_channels
-            
-            updated_settings = load_settings(self.settings_file)
-            if updated_settings != self.settings:
-                self.settings = updated_settings
-            
-            updated_webhooks = load_webhooks(self.webhooks_file)
-            if updated_webhooks != self.webhooks:
-                self.webhooks = updated_webhooks
+
+            self.monitored_channels = load_monitored_channels(self.data_file)
+            self.settings = load_settings(self.settings_file)
+            self.webhooks = load_webhooks(self.webhooks_file)
 
     async def on_message(self, message):
         await handle_message(self, message)
@@ -199,7 +191,6 @@ class pinBot(commands.Bot):
 
         for guild_id, task in tasks_to_remove:
             self.tasks[guild_id].remove(task)
-            print(f"Task removed: {task}")
 
         self.save_tasks()
 

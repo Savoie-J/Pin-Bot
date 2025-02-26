@@ -55,7 +55,7 @@ class SettingsView(discord.ui.View):
         elif select.values[0] == "tasks":
             guild_id = interaction.guild.id
             await interaction.response.send_message(
-                view=TasksView(guild_id),
+                view=TasksView(self.bot, guild_id),
                 ephemeral=True
             )
 
@@ -299,26 +299,18 @@ class ThreadSettingsView(discord.ui.View):
         )
 
 class TasksView(discord.ui.View):
-    def __init__(self, guild_id):
+    def __init__(self, bot, guild_id):
         super().__init__(timeout=60)
         self.guild_id = str(guild_id)
-
-        try:
-            with open("tasks.json", 'r') as file:
-                self.tasks = json.load(file)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.tasks = {}
-
-    def saved_tasks(self):
-        try:
-            with open("tasks.json", 'w') as file:
-                json.dump(self.tasks, file, indent=4)
-        except Exception as e:
-            print(f"Error saving tasks: {e}")
+        self.bot = bot
 
     @discord.ui.button(label="Delete Unpin Task", style=discord.ButtonStyle.red)
     async def delete_unpin_task(self, interaction: discord.Interaction, button: discord.ui.Button):
-        unpin_tasks = [task for task in self.tasks.get(self.guild_id, []) if task['type'] == 'unpin']
+        if self.guild_id not in self.bot.tasks:
+            await interaction.response.send_message("No tasks found for this server.", ephemeral=True)
+            return
+
+        unpin_tasks = [task for task in self.bot.tasks[self.guild_id] if task['type'] == 'unpin']
 
         if not unpin_tasks:
             await interaction.response.send_message("No unpin tasks found for this server.", ephemeral=True)
@@ -326,26 +318,31 @@ class TasksView(discord.ui.View):
 
         options = []
         for task in unpin_tasks:
-            channel = interaction.guild.get_channel(task['channel_id'])
-            formatted_time = datetime.fromisoformat(task['unpin_time']).strftime('%H:%M %m-%d-%Y')
-
-            if channel:
-                label = f"Channel: {channel.name} | Time: {formatted_time}"
+            try:
+                channel = interaction.guild.get_channel(task['channel_id'])
+                
+                unpin_time = task['unpin_time']
+                if isinstance(unpin_time, str):
+                    formatted_time = datetime.fromisoformat(unpin_time).strftime('%H:%M %m-%d-%Y')
+                else:
+                    formatted_time = str(unpin_time)
+                
+                label = f"Channel: {channel.name if channel else '(Deleted)'} | Time: {formatted_time}"
                 description = f"Message ID: {task['message_id']}"
-            else:
-                label = f"Channel: (Deleted) | Time: {formatted_time}"
-                description = f"Message ID: {task['message_id']}"
-
-            options.append(
-                discord.SelectOption(
-                    label=label[:100],  # Discord has a 100-character limit on labels
-                    description=description[:100],
-                    value=f"{task['channel_id']}_{task['message_id']}"
+                
+                options.append(
+                    discord.SelectOption(
+                        label=label[:100],
+                        description=description[:100],
+                        value=f"{task['channel_id']}_{task['message_id']}"
+                    )
                 )
-            )
+            except Exception as e:
+                print(f"Error processing unpin task: {task}. Error: {e}")
+                continue
 
         if not options:
-            await interaction.response.send_message("No valid channels found for the unpin tasks.", ephemeral=True)
+            await interaction.response.send_message("No valid unpin tasks found for this server.", ephemeral=True)
             return
 
         view = discord.ui.View()
@@ -358,30 +355,31 @@ class TasksView(discord.ui.View):
 
         async def select_callback(interaction: discord.Interaction):
             selected_value = interaction.data["values"][0]
-            selected_channel_id, selected_message_id = selected_value.split("_")
-            selected_channel_id = int(selected_channel_id)
-            selected_message_id = int(selected_message_id)
+            selected_channel_id, selected_message_id = map(int, selected_value.split("_"))
 
-            task_to_remove = next(
-                (task for task in unpin_tasks if 
-                 task['channel_id'] == selected_channel_id and 
-                 task['message_id'] == selected_message_id),
-                None
-            )
+            self.bot.tasks[self.guild_id] = [
+                task for task in self.bot.tasks[self.guild_id] 
+                if task['type'] != 'unpin' or 
+                task['channel_id'] != selected_channel_id or 
+                task['message_id'] != selected_message_id
+            ]
 
-            if task_to_remove:
-                self.tasks[self.guild_id] = [task for task in self.tasks.get(self.guild_id, []) if task != task_to_remove]
-                self.saved_tasks()
-                await interaction.response.send_message("Deleted the selected unpin task.", ephemeral=True)
-            else:
-                await interaction.response.send_message("Task not found.", ephemeral=True)
+            if not self.bot.tasks[self.guild_id]:
+                del self.bot.tasks[self.guild_id]
+
+            self.bot.save_tasks()
+            await interaction.response.send_message("Deleted the selected unpin task.", ephemeral=True)
 
         select.callback = select_callback
         await interaction.response.send_message("Select an unpin task to delete:", view=view, ephemeral=True)
 
     @discord.ui.button(label="Delete Thread Task", style=discord.ButtonStyle.red)
     async def delete_thread_task(self, interaction: discord.Interaction, button: discord.ui.Button):
-        thread_tasks = [task for task in self.tasks.get(self.guild_id, []) if task['type'] == 'thread_deletion']
+        if self.guild_id not in self.bot.tasks:
+            await interaction.response.send_message("No tasks found for this server.", ephemeral=True)
+            return
+
+        thread_tasks = [task for task in self.bot.tasks[self.guild_id] if task['type'] == 'thread_deletion']
 
         if not thread_tasks:
             await interaction.response.send_message("No thread deletion tasks found for this server.", ephemeral=True)
@@ -389,26 +387,31 @@ class TasksView(discord.ui.View):
 
         options = []
         for task in thread_tasks:
-            channel = interaction.guild.get_channel(task['channel_id'])
-            formatted_time = datetime.fromisoformat(task['thread_deletion_time']).strftime('%H:%M %m-%d-%Y')
-
-            if channel:
-                label = f"Channel: {channel.name} | Time: {formatted_time}"
+            try:
+                channel = interaction.guild.get_channel(task['channel_id'])
+                
+                thread_deletion_time = task['thread_deletion_time']
+                if isinstance(thread_deletion_time, str):
+                    formatted_time = datetime.fromisoformat(thread_deletion_time).strftime('%H:%M %m-%d-%Y')
+                else:
+                    formatted_time = str(thread_deletion_time)
+                
+                label = f"Channel: {channel.name if channel else '(Deleted)'} | Time: {formatted_time}"
                 description = f"Thread ID: {task['thread_id']}"
-            else:
-                label = f"Channel: (Deleted) | Time: {formatted_time}"
-                description = f"Thread ID: {task['thread_id']}"
 
-            options.append(
-                discord.SelectOption(
-                    label=label[:100],
-                    description=description[:100],
-                    value=f"{task['channel_id']}_{task['thread_id']}"
+                options.append(
+                    discord.SelectOption(
+                        label=label[:100],
+                        description=description[:100],
+                        value=f"{task['channel_id']}_{task['thread_id']}"
+                    )
                 )
-            )
+            except Exception as e:
+                print(f"Error processing thread task: {task}. Error: {e}")
+                continue
 
         if not options:
-            await interaction.response.send_message("No valid channels found for the thread deletion tasks.", ephemeral=True)
+            await interaction.response.send_message("No valid thread deletion tasks found for this server.", ephemeral=True)
             return
 
         view = discord.ui.View()
@@ -421,42 +424,57 @@ class TasksView(discord.ui.View):
 
         async def select_callback(interaction: discord.Interaction):
             selected_value = interaction.data["values"][0]
-            selected_channel_id, selected_thread_id = selected_value.split("_")
-            selected_channel_id = int(selected_channel_id)
-            selected_thread_id = int(selected_thread_id)
+            selected_channel_id, selected_thread_id = map(int, selected_value.split("_"))
 
-            task_to_remove = next(
-                (task for task in thread_tasks if 
-                 task['channel_id'] == selected_channel_id and 
-                 task['thread_id'] == selected_thread_id),
-                None
-            )
+            self.bot.tasks[self.guild_id] = [
+                task for task in self.bot.tasks[self.guild_id] 
+                if task['type'] != 'thread_deletion' or 
+                task['channel_id'] != selected_channel_id or 
+                task['thread_id'] != selected_thread_id
+            ]
 
-            if task_to_remove:
-                self.tasks[self.guild_id] = [task for task in self.tasks.get(self.guild_id, []) if task != task_to_remove]
-                self.saved_tasks()
-                await interaction.response.send_message("Deleted the selected thread task.", ephemeral=True)
-            else:
-                await interaction.response.send_message("Task not found.", ephemeral=True)
+            if not self.bot.tasks[self.guild_id]:
+                del self.bot.tasks[self.guild_id]
+
+            self.bot.save_tasks()
+            await interaction.response.send_message("Deleted the selected thread task.", ephemeral=True)
 
         select.callback = select_callback
         await interaction.response.send_message("Select a thread task to delete:", view=view, ephemeral=True)
 
     @discord.ui.button(label="List Tasks", style=discord.ButtonStyle.blurple)
     async def list_tasks(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.guild_id not in self.bot.tasks:
+            await interaction.response.send_message("No tasks scheduled for this server.", ephemeral=True)
+            return
+            
         unpin_tasks = []
         thread_tasks = []
-        
-        for task in self.tasks.get(self.guild_id, []):
-            if task['type'] == 'unpin':
-                unpin_time = datetime.fromisoformat(task['unpin_time']).strftime("%H:%M | %m-%d-%Y")
-                message_link = f"https://discord.com/channels/{self.guild_id}/{task['channel_id']}/{task['message_id']}"
-                unpin_tasks.append(f"<#{task['channel_id']}> - {unpin_time}\n└ [Jump to Message]({message_link})")
-            
-            elif task['type'] == 'thread_deletion':
-                thread_deletion_time = datetime.fromisoformat(task['thread_deletion_time']).strftime("%H:%M | %m-%d-%Y")
-                thread_link = f"https://discord.com/channels/{self.guild_id}/{task['channel_id']}/{task['thread_id']}"
-                thread_tasks.append(f"<#{task['channel_id']}> - {thread_deletion_time}\n└ [Jump to Thread]({thread_link})")
+
+        for task in self.bot.tasks[self.guild_id]:
+            try:
+                if task['type'] == 'unpin':
+                    unpin_time = task['unpin_time']
+                    if isinstance(unpin_time, str):
+                        formatted_time = datetime.fromisoformat(unpin_time).strftime("%H:%M | %m-%d-%Y")
+                    else:
+                        formatted_time = str(unpin_time)
+                    
+                    message_link = f"https://discord.com/channels/{self.guild_id}/{task['channel_id']}/{task['message_id']}"
+                    unpin_tasks.append(f"<#{task['channel_id']}> - {formatted_time}\n└ [Jump to Message]({message_link})")
+
+                elif task['type'] == 'thread_deletion':
+                    thread_deletion_time = task['thread_deletion_time']
+                    if isinstance(thread_deletion_time, str):
+                        formatted_time = datetime.fromisoformat(thread_deletion_time).strftime("%H:%M | %m-%d-%Y")
+                    else:
+                        formatted_time = str(thread_deletion_time)
+                    
+                    thread_link = f"https://discord.com/channels/{self.guild_id}/{task['channel_id']}/{task['thread_id']}"
+                    thread_tasks.append(f"<#{task['channel_id']}> - {formatted_time}\n└ [Jump to Thread]({thread_link})")
+            except Exception as e:
+                print(f"Error processing task: {task}. Error: {e}")
+                continue
 
         task_message = ""
 
