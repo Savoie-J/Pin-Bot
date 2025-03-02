@@ -65,9 +65,22 @@ async def setup_commands(bot):
                     ephemeral=True
                 )
 
+        except discord.HTTPException as e:
+            if e.status == 429:
+                await interaction.followup.send(
+                    "The bot is being rate-limited by Discord. Please wait a moment and try again.", 
+                    ephemeral=True
+                )
+            else:
+                print(f"Error in Pin Message context menu: \n{e}")
+                await interaction.followup.send(
+                    f"An error occurred while processing the message: \n{e}", 
+                    ephemeral=True
+                )
+
         except Exception as e:
-            print(f"Error in Pin Message context menu: {e}")
+            print(f"Error in Pin Message context menu: \n{e}")
             await interaction.followup.send(
-                "An error occurred while processing the message.", 
+                f"An error occurred while processing the message: \n{e}", 
                 ephemeral=True
             )

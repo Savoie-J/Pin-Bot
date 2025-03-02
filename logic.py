@@ -10,7 +10,7 @@ async def handle_message(bot, message):
         return
 
     guild_id = message.guild.id
-    webhooks = bot.load_webhooks()
+    webhooks = bot.webhooks
     settings = bot.settings.get(str(guild_id), {})
     unpin_delay_minutes = settings.get('unpin_time', 60)
     thread_deletion_delay_minutes = settings.get('thread_deletion_time', 60)

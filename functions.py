@@ -43,10 +43,16 @@ def load_webhooks(webhooks_file):
             webhooks = json.load(file)
             webhooks = {int(guild_id): urls for guild_id, urls in webhooks.items()}
             return webhooks
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError:
         print(f"No webhooks file found at {webhooks_file}, starting fresh.")
         save_webhooks({}, webhooks_file)
-        return {}
+        return {} 
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error in {webhooks_file}: {e}")
+        return {}  
+    except Exception as e: 
+        print(f"Error loading webhooks: {e}")
+        return {} 
 
 def save_webhooks(webhooks, webhooks_file):
     try:
